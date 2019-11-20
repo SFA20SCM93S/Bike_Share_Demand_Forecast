@@ -1,6 +1,9 @@
 # ----------Step 1: Import all the required libraries ----------
 # We will add to this as and when required
 library(ggplot2)
+#---- for model building----
+#install.packages("gbm")
+library (gbm)
 
 # ------------------- Step 1 ends here --------------------------
 
@@ -38,7 +41,11 @@ head(bike, 10)
       bike$month = as.factor(month(bike$datetime))
       bike$hour = as.factor(hour(bike$datetime))
       bike$wkday = as.factor(wday(bike$datetime))
-
+      bike = bike[-c(1)]
+      bike_test = bike_test[-c(1)]
+      
+      head(bike, 5)
+      head(bike_test, 5)
 # ------------------- Step 3 ends here --------------------------
 
 # ------------- Step 4: Exploratory Data Analysis -----------
@@ -153,4 +160,38 @@ ggplot(bike, aes(x=bike$hour, y=count, group=wkday, color=wkday)) +
   )+ 
   labs(title="Average Count By Hour Of The Day Across Weekdays") +
   labs(x="Hour of the Day", y="Count")
+
+# 4c. Drop some variables from the dataset based on the analysis so far 
+# drop temp, casual, registered and date
+bike_subset = bike[-c(5,9:10, 12)] 
+head(bike_subset,5)
+
+#----------Part 5 : Model Builing starts here ----------------------
+    # 5a. Split data into test and train set
+    # 5b. Linear Regression
+    # 5c. Random Forest
+    # 5d. Gradient Boosting
+
+# 5a. Split data into test and train set
+sample_size = floor(0.8 * nrow(bike))
+set.seed(1)
+train_index = sample(nrow(bike), size = sample_size)
+train <- bike[train_index, ]
+test <- bike[-train_index, ] 
+
+# 5d. Gradient Boosting
+  #install.packages("gbm")
+library (gbm)
+set.seed(1) 
+
+# Predict Casual Counts
+CasualData <- subset(train, select = -c(count, registered, date))
+
+boost.train=gbm(casual~.,data=CasualData,distribution= "gaussian",n.trees=5000,interaction.depth=4)
+summary(boost.train)
+PredTrainCasual = round(predict(boost.train, train, n.trees=5000),0)
+
+# Predict Registered Counts
+RegisteredData <- subset(train, select = -c(count, casual, date))
+
 
