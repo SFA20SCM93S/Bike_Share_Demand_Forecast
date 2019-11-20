@@ -182,16 +182,91 @@ test <- bike[-train_index, ]
 # 5d. Gradient Boosting
   #install.packages("gbm")
 library (gbm)
+gbmtree=4000
+iDepth = 3
 set.seed(1) 
 
 # Predict Casual Counts
 CasualData <- subset(train, select = -c(count, registered, date))
+gbm.Casual <- gbm(log1p(casual)~.,data=CasualData,distribution= "gaussian",n.trees=gbmtree,interaction.depth=iDepth)
 
-boost.train=gbm(casual~.,data=CasualData,distribution= "gaussian",n.trees=5000,interaction.depth=4)
-summary(boost.train)
-PredTrainCasual = round(predict(boost.train, train, n.trees=5000),0)
 
 # Predict Registered Counts
 RegisteredData <- subset(train, select = -c(count, casual, date))
+gbm.Registered <- gbm(log1p(registered)~.,data=RegisteredData,distribution= "gaussian",n.trees=gbmtree,interaction.depth=iDepth)
+
+summary(gbm.Casual)
+
+#                 var    rel.inf
+#hour             hour 56.9760312
+#temp             temp 13.6712902
+#month           month  9.7003849
+#humidity     humidity  3.9624909
+#wkday           wkday  3.8721591
+#workingday workingday  3.8606379
+#atemp           atemp  3.5983376
+#weather       weather  1.7951507
+#year             year  1.0807385
+#windspeed   windspeed  1.0745978
+#holiday       holiday  0.2119541
+#season         season  0.1962272
+
+summary(gbm.Registered)
+## summary(gbm.Registered)
+#var     rel.inf
+#hour             hour 73.99447438
+#month           month  6.26129638
+#workingday workingday  4.55590636
+#wkday           wkday  3.85967539
+#year             year  3.60929105
+#humidity     humidity  2.39512679
+#temp             temp  1.99088129
+#weather       weather  1.64512315
+#atemp           atemp  1.01003766
+#windspeed   windspeed  0.39311638
+#holiday       holiday  0.22416857
+#season         season  0.06090261
+
+##Inference - gbm Casual: season, holiday, weather are not much significant here.
+##Inference - gbm Registered: holiday, windspeed are not much significant here.
+
+gbm.CasualFinal <- gbm(log1p(casual) ~ hour + workingday + atemp + temp + month  +  wkday + humidity + year + windspeed, 
+                               data=CasualData, distribution= "gaussian",n.trees=gbmtree,interaction.depth=iDepth)
+gbm.RegisteredFinal <- gbm(log1p(registered) ~ hour + year + workingday + month + wkday + humidity + temp + weather + atemp + season, 
+                           data=RegisteredData, distribution= "gaussian",n.trees=gbmtree,interaction.depth=iDepth)
 
 
+# Prediction on train data
+  # Prediction on train data - casual users
+
+gbm.PredTrainCasual <- predict(gbm.Casual, train, n.trees=gbmtree)
+gbm.PredTrainCasualFinal <- predict(gbm.CasualFinal, train, n.trees=gbmtree)
+
+# Prediction on train data - Registered users
+gbm.PredTrainRegistered <- predict(gbm.Registered, train, n.trees=gbmtree)
+gbm.PredTrainRegisteredFinal <- predict(gbm.RegisteredFinal, train, n.trees=gbmtree)
+
+# Sum up Casual and Registered to get Total Count
+gbm.PredTrainCount <- round(exp(gbm.PredTrainCasual) - 1, 0) + round(exp(gbm.PredTrainRegistered) - 1, 0)
+gbm.PredTrainCountFinal <- round(exp(gbm.PredTrainCasualFinal) - 1, 0) + round(exp(gbm.PredTrainRegisteredFinal) - 1, 0)
+
+# Calculate Train RMSLE
+gbm.rf_train_rmsle_full <- rmsle(train$count, gbm.PredTrainCount)
+gbm.rf_train_rmsle2_reduced <- rmsle(train$count, gbm.PredTrainCountFinal)
+
+# Prediction on test data
+# Prediction on test data - casual users
+gbm.PredTestCasual = predict(gbm.Casual, test, n.trees=gbmtree)
+gbm.PredTestCasualFinal = predict(gbm.CasualFinal, test, n.trees=gbmtree)
+
+# Prediction on test data - registered users
+gbm.PredTestRegistered = predict(gbm.Registered, test, n.trees=gbmtree)
+gbm.PredTestRegisteredFinal = predict(gbm.RegisteredFinal, test, n.trees=gbmtree)
+
+# Sum up Casual and Registered to get Total Count
+gbm.PredTestCount = round(exp(gbm.PredTestCasual) - 1, 0) + round(exp(gbm.PredTestRegistered) - 1, 0)
+gbm.PredTestCountFinal = round(exp(gbm.PredTestCasualFinal) - 1, 0) + round(exp(gbm.PredTestRegisteredFinal) - 1, 0)
+
+# Calculate Train RMSLE
+gbm.rf_test_rmsle_full = rmsle(test$count, gbm.PredTestCount)
+gbm.rf_test_rmsle2_reduced = rmsle(test$count, gbm.PredTestCountFinal)
