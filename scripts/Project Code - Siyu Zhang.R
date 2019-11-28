@@ -37,6 +37,7 @@ head(bike, 10)
     # 3c. Correct Data: Check for any invalid data points
 
     # 3d. Create Derived Attributes - Feature Extraction
+bike$date=as.Date(substr(bike$datetime,1,10))
       bike$year = as.factor(year(bike$datetime))
       bike$month = as.factor(month(bike$datetime))
       bike$hour = as.factor(hour(bike$datetime))
@@ -55,19 +56,19 @@ head(bike, 10)
       # i. Check distribution of categorical variables --> pie chart
         # simple pie -->> pie(table(bike$season), main="season")
 
-ggplot(bike, aes(x=" ",fill=year))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = "year")+theme_void()
+ggplot(bike, aes(x=" ",fill=year))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = " Year")+ theme_void()
 
-ggplot(bike, aes(x=" ",fill=month))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = "month")+theme_void()
+ggplot(bike, aes(x=" ",fill=month))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = " Month")+theme_void()
 bike$season = factor(bike$season)
-ggplot(bike, aes(x=" ",fill=season))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = "Season")+theme_void()
+ggplot(bike, aes(x=" ",fill=season))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = " Season")+theme_void()
 bike$holiday = factor(bike$holiday)
-ggplot(bike, aes(x=" ",fill=holiday))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = "holiday")+theme_void()
+ggplot(bike, aes(x=" ",fill=holiday))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = " Holiday")+theme_void()
 
-ggplot(bike, aes(x=" ",fill=wkday))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = "weekday")+theme_void()
+ggplot(bike, aes(x=" ",fill=wkday))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = " Weekday")+theme_void()
 bike$workingday = factor(bike$workingday)
-ggplot(bike, aes(x=" ",fill=workingday))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = "workingday")+theme_void()
+ggplot(bike, aes(x=" ",fill=workingday))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = " Workingday")+theme_void()
 bike$weather = factor(bike$weather)
-ggplot(bike, aes(x=" ",fill=weather))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = "weather")+theme_void()
+ggplot(bike, aes(x=" ",fill=weather))+ geom_bar(width = 1)+ coord_polar("y")+labs(title = " Weather")+theme_void()
 
       # ii. Check how individual categorical features affects the target variable
 
@@ -122,6 +123,7 @@ ggplot(bike, aes(x=weather, y=count, fill=weather)) +
     position=position_dodge(),
   ) +  labs(title="Histogram for weather") +labs(x="weather", y="Count")
 
+
       # iii. Explore trends over time ---- exploring some more pairplots
 
 ggplot(bike, aes(x=season, y=count, group=year, color=year)) + 
@@ -149,7 +151,7 @@ ggplot(bike, aes(x=bike$hour, y=count, group=season, color=season)) +
   labs(title="Average Count By Hour Of The Day Across Season") +
   labs(x="Hour of the Day", y="Count")
 
-ggplot(bike, aes(x=bike$hour, y=count, group=wkday, color=wkday)) + 
+ggplot(bike, aes(x=bike$date, y=count, group=bike$date, color=year)) + 
   stat_summary(
     fun.y=mean, 
     geom='line'
@@ -193,10 +195,11 @@ gbm.Casual <- gbm(log1p(casual)~.,data=CasualData,distribution= "gaussian",n.tre
 
 # Predict Registered Counts
 RegisteredData <- subset(train, select = -c(count, casual, date))
-gbm.Registered <- gbm(log1p(registered)~.,data=RegisteredData,distribution= "gaussian",n.trees=gbmtree,interaction.depth=iDepth)
+gbm.Registered <- gbm(log1p(registered)~.,data=RegisteredData,distribution= "gaussian",
+                      n.trees=gbmtree,interaction.depth=iDepth)
 
 summary(gbm.Casual)
-
+## summary(gbm.Casual)
 #                 var    rel.inf
 #hour             hour 56.9760312
 #temp             temp 13.6712902
@@ -230,9 +233,9 @@ summary(gbm.Registered)
 ##Inference - gbm Casual: season, holiday, weather are not much significant here.
 ##Inference - gbm Registered: holiday, windspeed are not much significant here.
 
-gbm.CasualFinal <- gbm(log1p(casual) ~ hour + workingday + atemp + temp + month  +  wkday + humidity + year + windspeed, 
+gbm.CasualFinal <- gbm(log1p(casual) ~ hour + workingday  + temp + month  +  wkday + humidity + year + windspeed, 
                                data=CasualData, distribution= "gaussian",n.trees=gbmtree,interaction.depth=iDepth)
-gbm.RegisteredFinal <- gbm(log1p(registered) ~ hour + year + workingday + month + wkday + humidity + temp + weather + atemp + season, 
+gbm.RegisteredFinal <- gbm(log1p(registered) ~ hour + year + workingday + month + wkday + humidity + temp + weather  + season, 
                            data=RegisteredData, distribution= "gaussian",n.trees=gbmtree,interaction.depth=iDepth)
 
 
@@ -267,6 +270,24 @@ gbm.PredTestRegisteredFinal = predict(gbm.RegisteredFinal, test, n.trees=gbmtree
 gbm.PredTestCount = round(exp(gbm.PredTestCasual) - 1, 0) + round(exp(gbm.PredTestRegistered) - 1, 0)
 gbm.PredTestCountFinal = round(exp(gbm.PredTestCasualFinal) - 1, 0) + round(exp(gbm.PredTestRegisteredFinal) - 1, 0)
 
-# Calculate Train RMSLE
+# Calculate test RMSLE
 gbm.rf_test_rmsle_full = rmsle(test$count, gbm.PredTestCount)
 gbm.rf_test_rmsle2_reduced = rmsle(test$count, gbm.PredTestCountFinal)
+
+
+cat("\nTraining RMSLE - Gradient Boosting (Full Model): ", gbm.rf_train_rmsle_full)
+cat("\nTraining RMSLE - Gradient Boosting (Reduced Model): : ", gbm.rf_train_rmsle2_reduced)
+
+
+cat("\nTest RMSLE - Gradient Boosting (Full Model): ", gbm.rf_test_rmsle_full)
+cat("\nTest RMSLE - Gradient Boosting (Reduced Model): ", gbm.rf_test_rmsle2_reduced)
+
+# Save the GBM results
+gbm_test_casual = round(predict(gbm.CasualFinal, bike_test),0)
+gbm_test_registered = round(predict(gbm.RegisteredFinal, bike_test),)
+#rf_results = rf_test_casual + rf_test_registered
+
+hist(bike$count, main="Training Data")
+hist(lm_results, main="Linear Regression Fit")
+hist(rf_results, main="Random Forest Fit")
+
