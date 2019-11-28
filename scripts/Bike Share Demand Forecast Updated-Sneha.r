@@ -81,6 +81,8 @@
       bike$hour = as.factor(hour(bike$datetime))
       bike$wkday = as.factor(wday(bike$datetime))
       
+      bike_subset = bike[c(1,13:17)] 
+      
       bike_test$date=as.Date(substr(bike_test$datetime,1,10))
       bike_test$year = as.factor(year(bike_test$datetime))
       bike_test$month = as.factor(month(bike_test$datetime))
@@ -264,13 +266,13 @@
         
         # Predict Casual Counts
         set.seed(1)
-        CasualData <- subset(train, select = -c(count, registered, date))
+        CasualData <- subset(train, select = -c(count, registered, date, atemp))
         CasualFit <- randomForest(casual ~ ., data=CasualData, ntree=Ntree, mtry=Mtry,
                                 importance=myImportance)
         
 
         # Predict Registered Counts
-        RegisteredData <- subset(train, select = -c(count, casual, date))
+        RegisteredData <- subset(train, select = -c(count, casual, date, atemp))
         RegisteredFit <- randomForest(registered ~ ., data=RegisteredData, ntree=Ntree, mtry=Mtry,
                                 importance=myImportance)
 
@@ -278,13 +280,13 @@
         varImpPlot(RegisteredFit)
 
     #Inference - Casual Fit: season, holiday, windspeed and weather are not much significant here.
-    #Inference - Registered Fit: season, holiday, windspeed and temp are not much significant here.
+    #Inference - Registered Fit: season, holiday, windspeed and wkday are not much significant here.
 
 
-        casualFitFinal <- randomForest(casual ~ hour + year + humidity + month + temp + atemp + workingday + wkday, 
+        casualFitFinal <- randomForest(casual ~ hour + year + humidity + month + temp + workingday + wkday, 
                                data=CasualData, ntree=Ntree, mtry=Mtry,importance=myImportance)
-        RegisteredFitFinal <- randomForest(registered ~ hour + year + month + weather + workingday + humidity + atemp 
-                                        + wkday, data=RegisteredData, ntree=Ntree, mtry=Mtry,importance=myImportance)
+        RegisteredFitFinal <- randomForest(registered ~ hour + year + month + weather + workingday + humidity + temp,
+                                           data=RegisteredData, ntree=Ntree, mtry=Mtry,importance=myImportance)
 
 
         # Prediction on train data
@@ -333,22 +335,32 @@ cat("\n\nTest RMSLE - Linear Regression: ", lm_test_RMSLE)
 cat("\nTest RMSLE - Random Forest (Full Model): ", rf_test_rmsle_full)
 cat("\nTest RMSLE - Random Forest (Reduced Model): ", rf_test_rmsle2_reduced)
 
-
         # Save the RF results
-        #rf_test_casual = round(predict(casualFitFinal, bike_test),0)
-        #rf_test_registered = round(predict(RegisteredFitFinal, bike_test),)
-        #rf_results = rf_test_casual + rf_test_registered
+        rf_test_casual = round(predict(casualFitFinal, bike_test),0)
+        rf_test_registered = round(predict(RegisteredFitFinal, bike_test),)
+        rf_results = rf_test_casual + rf_test_registered
         
-        hist(bike$count, main="Training Data")
-        hist(lm_results, main="Linear Regression Fit")
-        hist(rf_results, main="Random Forest Fit")
+par(mfrow=c(2,2))
+hist(bike$count, main="Training Data")
+hist(lm_results, main="Linear Regression Fit")
+hist(rf_results, main="Random Forest Fit")
 
-        # Inference: The distribution of predicted count looks similar to that of train data. 
+# Inference: The distribution of predicted count looks similar to that of train data. 
 
-        plot(bike$count, main="Training Data")
-        plot(lm_results, main="Linear Regression Fit")
-        plot(rf_results, main="Random Forest Fit")
+par(mfrow=c(2,2))
+plot(bike$count, main="Training Data")
+plot(lm_results, main="Linear Regression Fit")
+plot(rf_results, main="Random Forest Fit")
 
-        # Histograms and plots clearly shows that Random Forest fits better than Linear Regression.
+# Histograms and plots clearly shows that Random Forest fits better than Linear Regression.
+
+
+plot(test_subset$count, main = "Linear Model", ylab = "Test Set Rental Count", pch = 20)
+points(predict(lm_fit, newdata = test), col = "red", pch = 20)
+
+plot(test_subset$count, main = "Random Forest", ylab = "Test Set Rental Count", pch = 20)
+points(PredTestCountFinal, col = "red", pch = 20)
+
+
 
 
